@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>A Birthday Surprise for Dora</title>
+<style>
+  :root{
+    --w:900px; --h:540px;
+    --bg1:#0f1530; --bg2:#08101f;
+    --accent:#ff6aa6;
+    font-family:"Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    display:grid;
+    place-items:center;
+    background:linear-gradient(180deg,#201a3a 0%, #06122b 100%);
+    overflow:hidden;
+  }
+  .frame{
+    width:90vw; max-width:900px;
+    aspect-ratio:16/9;
+    position:relative;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 10px 40px rgba(2,6,23,.6);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+  }
+  .start{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    z-index:40; color:#ffecf2; text-align:center;
+    padding:20px;
+  }
+  .start h1{
+    font-family:Georgia, "Times New Roman", serif;
+    font-size:clamp(24px,6vw,44px);
+    margin:0;
+  }
+  .start p{
+    margin:0; color:#ffd3e8; font-size:clamp(14px,4vw,18px);
+  }
+  .btn{
+    background:linear-gradient(#ff6aa6,#ff2e78);
+    color:white; font-weight:700; border:0;
+    padding:10px 34px; border-radius:20px; cursor:pointer;
+    font-size:clamp(16px,4vw,20px);
+    box-shadow:0 6px 18px rgba(255,46,120,0.2);
+    margin-top:14px;
+  }
+  .btn:active{transform:translateY(1px);}
+  .layers{position:absolute; inset:0; pointer-events:none;}
+  canvas{position:absolute; left:0; top:0; width:100%; height:100%; display:block;}
+  .ui{position:absolute; inset:0; pointer-events:auto; display:block;}
+  .messageBox{
+    position:absolute; left:5%; top:10%; width:90%;
+    max-width:520px; padding:18px;
+    border-radius:16px;
+    background:rgba(255,255,255,0.035); color:#fff;
+    pointer-events:auto; box-sizing:border-box;
+    backdrop-filter:blur(4px);
+  }
+  .messageBox h2{
+    font-family:Georgia, serif;
+    font-size:clamp(20px,5vw,30px);
+    margin:0 0 6px 0; color:#fff7f7;
+  }
+  .messageBox .date{
+    color:#ffdfe8; margin:0 0 12px 0; font-size:clamp(12px,3.5vw,14px);
+  }
+  .messageBox .typewriter{
+    white-space:pre-wrap; font-size:clamp(14px,4vw,20px);
+    line-height:1.4; color:#ffffff; min-height:110px;
+  }
+  .messageBox .footer{
+    color:#ffd3e8; font-size:clamp(14px,4vw,18px);
+    margin-top:10px; min-height:26px;
+  }
+  .replay{position:absolute; right:12px; top:12px; z-index:50;}
+  .replay .small{
+    background:rgba(255,255,255,0.08); border-radius:12px; color:white;
+    padding:8px 12px; border:0; cursor:pointer;
+    font-size:clamp(12px,3.5vw,14px);
+  }
+  .musicBtn{position:absolute; right:12px; top:52px; z-index:50;}
+  .musicBtn button{
+    background:rgba(255,255,255,0.06); border:0; color:#ffd3e8;
+    padding:8px 12px; border-radius:10px; cursor:pointer;
+    font-size:clamp(12px,3.5vw,14px);
+  }
+  .emojiLayer,.particleLayer,.balloonLayer{position:absolute; inset:0; pointer-events:none;}
+  .heart{position:absolute; width:22px; height:22px; transform:translate(-50%,-50%) scale(1);
+    pointer-events:none; will-change:transform, opacity;}
+  .heart svg{width:100%; height:100%;}
+  .balloon{position:absolute; width:36px; height:50px; pointer-events:none; will-change:transform, opacity;
+    transform-origin:center bottom;}
+  .emoji{position:absolute; font-size:28px; pointer-events:none; will-change:transform, opacity;}
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame">
+  <div class="start" id="startScreen">
+    <h1>Hey Dora ✨</h1>
+    <p>Tap to Begin 🎂</p>
+    <button class="btn" id="startBtn">😄</button>
+  </div>
+
+  <div class="layers" id="layers" style="display:none;">
+    <canvas id="particleCanvas"></canvas>
+    <div class="particleLayer" id="particleLayer"></div>
+    <div class="balloonLayer" id="balloonLayer"></div>
+    <div class="emojiLayer" id="emojiLayer"></div>
+
+    <div class="ui" id="uiLayer">
+      <div class="messageBox" id="messageBox">
+        <h2 id="heading">Happy Birthday, Dora! 🎉</h2>
+        <div class="date" id="dateText">11/11/2025 • With all my love</div>
+        <div class="typewriter" id="typewriter"></div>
+        <div class="footer" id="footer"></div>
+      </div>
+
+      <div class="replay"><button class="small" id="replayBtn">Replay 🎉</button></div>
+      <div class="musicBtn"><button id="musicToggle">Play Music ◐</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const NAME="Dora";
+const DATE="11/11/2025";
+const APOLOGY="Sorry for everything, Dora, that happened before. Please forgive me — it won’t happen again. 💖";
+const FOOTER="You’ll always be my Batgirl 🦇";
+
+const startScreen=document.getElementById('startScreen');
+const startBtn=document.getElementById('startBtn');
+const layers=document.getElementById('layers');
+const frame=document.getElementById('frame');
+const particleCanvas=document.getElementById('particleCanvas');
+const pctx=particleCanvas.getContext('2d');
+const particleLayer=document.getElementById('particleLayer');
+const balloonLayer=document.getElementById('balloonLayer');
+const emojiLayer=document.getElementById('emojiLayer');
+const typewriterEl=document.getElementById('typewriter');
+const footerEl=document.getElementById('footer');
+const dateText=document.getElementById('dateText');
+const replayBtn=document.getElementById('replayBtn');
+const musicToggle=document.getElementById('musicToggle');
+
+function resizeCanvas(){
+  const r=frame.getBoundingClientRect();
+  particleCanvas.width=r.width;
+  particleCanvas.height=r.height;
+}
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
+
+let audio; let audioPlaying=true;
+try{
+  audio=new Audio('bgm.mp3');
+  audio.loop=true; audio.volume=0.45;
+}catch(e){audio=null;}
+musicToggle.addEventListener('click',()=>{
+  if(!audio){alert('No bgm.mp3 found in same folder.');return;}
+  if(audioPlaying){audio.pause();audioPlaying=false;musicToggle.textContent='Play Music ◐';}
+  else{audio.play().catch(()=>{});audioPlaying=true;musicToggle.textContent='Pause Music ❚❚';}
+});
+
+function rand(min,max){return min+Math.random()*(max-min);}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+const heartColors=["#ff6aa6","#ff4d94","#ff9ac0","#ffb3d9","#ffa8c9"];
+const balloonColors=["#ffd166","#89f7fe","#fca5a5","#c7b3ff","#ffd1dc"];
+const fireColors=["#ffd166","#ff7ab6","#7ef0c7","#ffd3a5","#ffd3e8"];
+const emojiList=["💖","✨","🎂","🎉","💫","🌟","🥰","💌"];
+
+const fullMessage="Happy Birthday, "+NAME+"! 🎉\nWishing you laughter, joy, and endless surprises on "+DATE+"\n\n"+APOLOGY+"\n\n"+FOOTER;
+
+function playTypewriter(){
+  typewriterEl.textContent="";
+  footerEl.textContent="";
+  let idx=0; const speed=45;
+  const timer=setInterval(()=>{
+    if(idx<fullMessage.length){
+      typewriterEl.textContent+=fullMessage[idx++];
+    }else{clearInterval(timer);footerEl.textContent="— From your Batman 🦇";}
+  },speed);
+}
+
+/* Hearts glow + touch popup hearts */
+function makeHeartNode(x,y,size,color){
+  const div=document.createElement('div');
+  div.className='heart';
+  div.style.left=x+'px';
+  div.style.top=y+'px';
+  div.style.width=size+'px';
+  div.style.height=size+'px';
+  div.style.opacity='0.95';
+  div.innerHTML=`<svg viewBox="0 0 32 29"><path d="M23.6 2c-2.7 0-4.9 1.6-6 3.3C16.3 3.6 14 2 11.4 2 6.8 2 3 6 3 10.9c0 7.4 13 13.8 13 13.8s13-6.4 13-13.8C29 6 25.2 2 23.6 2z" fill="${color}"/></svg>`;
+  particleLayer.appendChild(div);
+  const lifetime=2200+Math.random()*1200;
+  const dx=-40+Math.random()*80;
+  const dy=-160-Math.random()*120;
+  const scaleTo=1+Math.random()*0.7;
+  const start=performance.now();
+  function anim(now){
+    const t=(now-start)/lifetime;
+    if(t>=1){div.remove();return;}
+    const e=1-Math.pow(1-t,2);
+    div.style.transform=`translate(${dx*e}px,${dy*e}px) scale(${1+(scaleTo-1)*e})`;
+    div.style.opacity=String(0.95*(1-e));
+    requestAnimationFrame(anim);
+  }
+  requestAnimationFrame(anim);
+}
+
+frame.addEventListener("click", (e) => {
+  if (layers.style.display !== "none") {
+    const rect = frame.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    makeHeartNode(x, y, 16 + Math.random() * 20, pick(heartColors));
+  }
+});
+frame.addEventListener("touchstart", (e) => {
+  if (layers.style.display !== "none") {
+    for (let touch of e.touches) {
+      const rect = frame.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      makeHeartNode(x, y, 16 + Math.random() * 20, pick(heartColors));
+    }
+  }
+});
+
+let heartsAutoInterval;
+function startFloatingHearts(){
+  heartsAutoInterval=setInterval(()=>{
+    const r=frame.getBoundingClientRect();
+    const startX=60+Math.random()*Math.min(220,r.width*0.6);
+    const startY=r.height-20;
+    makeHeartNode(startX,startY,8+Math.random()*18,pick(heartColors));
+  },500);
+}
+function stopFloatingHearts(){clearInterval(heartsAutoInterval);}
+
+/* Balloons, Emojis, Fireworks — same as before */
+function makeBalloon(){
+  const r=frame.getBoundingClientRect();
+  const x=r.width-140-Math.random()*Math.min(160,r.width*0.6);
+  const g=document.createElement('div');
+  g.className='balloon';
+  g.style.left=x+'px';
+  g.style.top=(r.height+30)+'px';
+  g.innerHTML=`<svg viewBox="0 0 50 70"><ellipse cx="25" cy="25" rx="18" ry="22" fill="${pick(balloonColors)}"/></svg>`;
+  balloonLayer.appendChild(g);
+  const duration=8000+Math.random()*4000;
+  const dx=-40+Math.random()*80;
+  const dy=-700-Math.random()*160;
+  const start=performance.now();
+  function anim(now){
+    const t=(now-start)/duration;
+    if(t>=1){g.remove();return;}
+    const e=1-Math.pow(1-t,2);
+    g.style.transform=`translate(${dx*e}px,${dy*e}px)`;
+    g.style.opacity=String(1-e);
+    requestAnimationFrame(anim);
+  }
+  requestAnimationFrame(anim);
+}
+let balloonsInterval;
+function startBalloons(){balloonsInterval=setInterval(makeBalloon,3000);}
+function stopBalloons(){clearInterval(balloonsInterval);}
+
+function makeEmoji(){
+  const r=frame.getBoundingClientRect();
+  const e=document.createElement('div');
+  e.className='emoji';
+  e.textContent=pick(emojiList);
+  e.style.left=(120+Math.random()*360)+'px';
+  e.style.top=(r.height-40)+'px';
+  emojiLayer.appendChild(e);
+  const duration=6000+Math.random()*3000;
+  const dx=-60+Math.random()*120;
+  const dy=-420-Math.random()*200;
+  const start=performance.now();
+  function anim(now){
+    const t=(now-start)/duration;
+    if(t>=1){e.remove();return;}
+    const eOut=1-Math.pow(1-t,2);
+    e.style.transform=`translate(${dx*eOut}px,${dy*eOut}px)`;
+    e.style.opacity=String(0.95*(1-eOut));
+    requestAnimationFrame(anim);
+  }
+  requestAnimationFrame(anim);
+}
+let emojiInterval;
+function startEmojiDrift(){emojiInterval=setInterval(makeEmoji,1200);}
+function stopEmojiDrift(){clearInterval(emojiInterval);}
+
+/* Fireworks */
+const particles=[];
+function createFirework(){
+  const r=frame.getBoundingClientRect();
+  const cx=300+Math.random()*Math.max(0,(r.width-480));
+  const cy=80+Math.random()*Math.min(160,r.height*0.3);
+  const count=18+Math.floor(Math.random()*14);
+  for(let i=0;i<count;i++){
+    const angle=(i*(360/count)+Math.random()*20)*Math.PI/180;
+    const speed=60+Math.random()*120;
+    const vx=Math.cos(angle)*speed/100;
+    const vy=Math.sin(angle)*speed/100;
+    particles.push({x:cx,y:cy,vx,vy,life:1000+Math.random()*1200,age:0,size:3+Math.random()*4,color:pick(fireColors)});
+  }
+}
+let lastTime=performance.now();
+function updateParticles(now){
+  const dt=now-lastTime; lastTime=now;
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i]; p.age+=dt;
+    if(p.age>=p.life){particles.splice(i,1);continue;}
+    const t=p.age/p.life;
+    p.x+=p.vx*dt*(1+t*0.5); p.y+=p.vy*dt*(1+t*0.5);
+  }
+  const ctx=pctx;
+  ctx.clearRect(0,0,particleCanvas.width,particleCanvas.height);
+  particles.forEach(p=>{
+    const a=1-(p.age/p.life);
+    ctx.beginPath();
+    ctx.fillStyle=p.color;
+    ctx.globalAlpha=a*0.95;
+    ctx.arc(p.x,p.y,Math.max(0.4,p.size*(1-p.age/p.life)),0,Math.PI*2);
+    ctx.fill(); ctx.globalAlpha=1;
+  });
+  requestAnimationFrame(updateParticles);
+}
+let fireworkTimer;
+function startFireworks(){fireworkTimer=setInterval(createFirework,4500);lastTime=performance.now();requestAnimationFrame(updateParticles);}
+function stopFireworks(){clearInterval(fireworkTimer);}
+
+function startAll(){
+  startScreen.style.display='none';
+  layers.style.display='block';
+  document.getElementById('heading').textContent="Happy Birthday, "+NAME+"! 🎉";
+  dateText.textContent=DATE+" • With all my love";
+  startFloatingHearts(); startBalloons(); startEmojiDrift(); startFireworks(); playTypewriter();
+  if(audio&&!audioPlaying){audio.play().then(()=>{audioPlaying=true;musicToggle.textContent='Pause Music ❚❚';}).catch(()=>{});}
+}
+function stopAll(){
+  stopFloatingHearts(); stopBalloons(); stopEmojiDrift(); stopFireworks();
+  particleLayer.innerHTML=''; balloonLayer.innerHTML=''; emojiLayer.innerHTML='';
+  if(audio){audio.pause();audioPlaying=false;musicToggle.textContent='Play Music ◐';}
+}
+replayBtn.addEventListener('click',()=>{stopAll();setTimeout(startAll,120);});
+startBtn.addEventListener('click',startAll);
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&startScreen.style.display!=='none'){startAll();}});
+frame.style.userSelect='none';
+dateText.textContent=DATE+" • With all my love";
+</script>
+</body>
+</html>
+``
